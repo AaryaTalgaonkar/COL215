@@ -88,6 +88,20 @@ class Circuit
 			lit[literal]=0;
 		}
 	}
+	bool isspace(char *c)
+	{
+		bool f=1;
+		int i=0;
+		char ch;
+		while((c[i]!='\r') and (c[i]!='\0'))
+		{	
+			ch=c[i];
+			if((ch!='\t') and (ch!=' ') and (ch!='\v') and (ch!='\f'))
+				f=0;
+			i++;
+		}
+		return f;
+	}
 	public:
 	void set_gates()		//sets all the delay timings of the gates to the ones provided in the file.
 	{
@@ -95,7 +109,7 @@ class Circuit
 		char line[100];
 		while(g_delays.getline(line,100))
 		{	
-			if((line[0]=='/' and line[1]=='/'))
+			if((line[0]=='/' and line[1]=='/') or (line[0]=='\r') or isspace(line))
 			{
 				continue;
 			}
@@ -124,7 +138,7 @@ class Circuit
 		while(net.getline(line,100))
 		{	
 			
-			if((line[0]=='/' and line[1]=='/'))
+			if((line[0]=='/' and line[1]=='/') or (line[0]=='\r') or isspace(line))
 			{
 				continue;
 			}
