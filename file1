@@ -5,9 +5,9 @@ using namespace std;
 class Circuit
 {
 	private:
-	#define max(a,b) ((a>b)? a:b) 	 //map from literals to their delays
-	unordered_map <string,float> lit; 	//map from gates to their delays
-	unordered_map <string,float> gates;
+	#define max(a,b) ((a>b)? a:b)
+	unordered_map <string,float> lit; 	 //map from literals to their delays
+	unordered_map <string,float> gates; 	//map from gates to their delays
 	void read_gate(string gate)	 //provided the line containing the i/o of the gate, updates the map of literals
 	{
 		string g_name="";
