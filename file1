@@ -1,7 +1,164 @@
 #include <iostream>
 #include <fstream>
+#include <unordered_map>
 using namespace std;
+class Circuit
+{
+	private:
+	#define max(a,b) ((a>b)? a:b) 	 //map from literals to their delays
+	unordered_map <string,float> lit; 	//map from gates to their delays
+	unordered_map <string,float> gates;
+	void read_gate(string gate)	 //provided the line containing the i/o of the gate, updates the map of literals
+	{
+		string g_name="";
+		string no_in="";
+		int ind=0;
+		for(char ch:gate)
+		{
+			ind++;
+			if(ch==' ')
+			{
+				break;
+			}
+			if(isdigit(ch))
+			{
+				no_in+=ch;
+			}
+			g_name+=ch;
+		}
+		int i=1;
+		if(no_in!="")
+		{
+			i=(int)(stof(no_in));
+		}
+		int delay=0;
+		string literal="";
+		while(i)
+		{
+			literal="";
+			while(gate[ind]!=' ')
+			{
+				literal+=gate[ind];
+				ind++;
+			}
+			ind++;
+			delay=max(delay,lit[literal]);
+			i--;
+		}
+		delay+=gates[g_name];
+		literal="";
+		while(gate[ind]!='\r' and gate[ind]!='\0')
+		{
+			literal+=gate[ind];
+			ind++;
+		}	
+		lit[literal]=delay;
+	}
+	void set_out(string out) 		//writes the output file
+	{
+		ofstream o_delays("output_delays.txt");
+		int ind=15;
+		string literal="";
+		while((out[ind]!='\r') and (out[ind]!='\0'))
+		{
+			ind++;
+			literal="";
+			while((out[ind]!=' ') and (out[ind]!='\r') and (out[ind]!='\0'))
+			{
+				literal+=out[ind];
+				ind++;
+			}
+			o_delays<<literal<<" "<<lit[literal]<<endl;
+		}
+		o_delays.close();	
+	}
+	void read_inp(string inp)		//provided the line containing the primary inputs,stores them in the map
+	{
+		int ind=14;
+		string literal="";
+		while((inp[ind]!='\r') and (inp[ind]!='\0'))
+		{
+			ind++;
+			literal="";
+			while((inp[ind]!=' ') and (inp[ind]!='\r') and (inp[ind]!='\0'))
+			{
+				literal+=inp[ind];
+				ind++;
+			}
+			lit[literal]=0;
+		}
+	}
+	public:
+	void set_gates()		//sets all the delay timings of the gates to the ones provided in the file.
+	{
+		ifstream g_delays("gate_delays.txt");
+		char line[100];
+		while(g_delays.getline(line,100))
+		{	
+			if((line[0]=='/' and line[1]=='/'))
+			{
+				continue;
+			}
+			string s1="";
+			string s2="";
+			int i=0;
+			while(line[i]!=' ')
+			{
+				s1=s1+line[i];
+				i++;
+			}
+			while(line[i])
+			{
+				s2=s2+line[i];
+				i++;
+			}
+			gates[s1]=stof(s2);
+		}
+		g_delays.close();
+	}	
+	void mk_circ()		//reads the circuit file
+	{
+		ifstream net("circuit.txt");
+		char line[100];	
+		string o_line="";	
+		while(net.getline(line,100))
+		{	
+			
+			if((line[0]=='/' and line[1]=='/'))
+			{
+				continue;
+			}
+			string s1="";
+			int i=0;
+			while(line[i]!=' ')
+			{
+				s1=s1+line[i];
+				i++;
+			}
+			if(s1=="PRIMARY_OUTPUTS")
+			{
+				o_line=line;
+			}
+			else if(s1=="PRIMARY_INPUTS")
+			{
+				read_inp(line);
+			}
+			else if(s1=="INTERNAL_SIGNALS")
+			{
+			}
+			else
+			{
+				read_gate(line);
+			}
+		}
+		net.close();
+		set_out(o_line);
+	}
+		
+};
 int main()
 {
-  
+	Circuit cir;
+	cir.set_gates();
+	cir.mk_circ();
 }
