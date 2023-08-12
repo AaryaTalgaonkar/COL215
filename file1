@@ -1,3 +1,4 @@
+#include <iostream>
 #include <fstream>
 #include <limits>
 #include <unordered_map>
@@ -43,7 +44,7 @@ class GATE 	//simulate a gate with its input and outputs
 		return name;
 	}
 };
-class Node
+class Node		//creating separate nodes for linked list
 {
 	private:
 	Node* prev;
@@ -63,6 +64,10 @@ class Node
 	{
 		return prev;
 	}
+	Node* get_next()
+	{
+		return next;
+	}
 	GATE* get_val()
 	{
 		return val;
@@ -71,30 +76,49 @@ class Node
 class List 	//create a linked list to store pointers of GATE type
 {
 	private:
-	Node* last=nullptr;
+	Node* tail=nullptr;
+	Node* head=nullptr;
+	Node* current=nullptr;
 	public:
 	void push_back(GATE* a)
 	{
-		if(last!=nullptr)
+		if(tail!=nullptr)
 		{
-			Node *temp=new Node(last,a);
-			last->set_next(temp);
-			last=temp;
+			Node *temp=new Node(tail,a);
+			tail->set_next(temp);
+			tail=temp;
 		}
 		else
 		{
-			Node *temp=new Node(last,a);
-			last=temp;
+			Node *temp=new Node(tail,a);
+			tail=temp;
+			head=temp;
 		}
+		current=tail;
 	}
-	Node* go_back()
+	Node* tow_head()
 	{
-		last=last->get_prev();
-		return last;		
+		current=current->get_prev();
+		return current;		
 	}
-	Node* get_last()
+	Node* tow_tail()
 	{
-		return last;
+		current=current->get_next();
+		return current;		
+	}
+	Node* go_first()
+	{
+		current=head;
+		return current;		
+	}
+	Node* go_last()
+	{
+		current=tail;
+		return current;		
+	}
+	Node* get_tail()
+	{
+		return tail;
 	}			
 };
 class CIRCUIT
@@ -105,9 +129,10 @@ class CIRCUIT
 	unordered_map <string,float> lit; 	 //map from literals to their delays
 	unordered_map <string,float> gates; 	//map from gates to their delays
 	string i_line="";
-	string o_line="";	
+	string o_line="";
+	string is_line="";	
 	List ls;
-	void read_gate(string gate)	 //provided the line containing the i/o of the gate, updates the map of literals
+	void read_gate(string gate)	 //provided the line containing the i/o of the gate simulates the gate in the memory
 	{
 		static int x=-1;
 		string g_name="";
@@ -133,7 +158,6 @@ class CIRCUIT
 			i=(int)(stof(no_in));
 		}
 		pt=new GATE(g_name,i);
-		int delay=0;
 		string literal="";
 		while(i)
 		{
@@ -144,11 +168,9 @@ class CIRCUIT
 				ind++;
 			}
 			ind++;
-			delay=max(delay,lit[literal]);
 			pt->set_in(literal);
 			i--;
 		}
-		delay+=gates[g_name];
 		literal="";
 		while(gate[ind]!='\r' and gate[ind]!='\0')
 		{
@@ -157,43 +179,23 @@ class CIRCUIT
 		}	
 		pt->set_out(literal);
 		ls.push_back(pt);
-		lit[literal]=delay;
 	}
-	void print_out() 		//writes the output file
+	void add_lit(string s,int ind)		//provided the line containing the signals,stores them in the map
 	{
-		ofstream o_delays("output_delays.txt");
-		int ind=15;
 		string literal="";
-		while((o_line[ind]!='\r') and (o_line[ind]!='\0'))
+		while((s[ind]!='\r') and (s[ind]!='\0'))
 		{
 			ind++;
 			literal="";
-			while((o_line[ind]!=' ') and (o_line[ind]!='\r') and (o_line[ind]!='\0'))
+			while((s[ind]!=' ') and (s[ind]!='\r') and (s[ind]!='\0'))
 			{
-				literal+=o_line[ind];
-				ind++;
-			}
-			o_delays<<literal<<" "<<lit[literal]<<endl;
-		}
-		o_delays.close();	
-	}
-	void read_inp(string inp)		//provided the line containing the primary inputs,stores them in the map
-	{
-		int ind=14;
-		string literal="";
-		while((inp[ind]!='\r') and (inp[ind]!='\0'))
-		{
-			ind++;
-			literal="";
-			while((inp[ind]!=' ') and (inp[ind]!='\r') and (inp[ind]!='\0'))
-			{
-				literal+=inp[ind];
+				literal+=s[ind];
 				ind++;
 			}
 			lit[literal]=0;
 		}
 	}
-	bool isspace(char *c)
+	bool isspace(char *c)			//checks if a given line contains only whitespaces
 	{
 		bool f=1;
 		int i=0;
@@ -207,10 +209,87 @@ class CIRCUIT
 		}
 		return f;
 	}
-	public:
-	void set_req_del()	//sets the primary output delays
+	void print(string s,int ind,string line) 		//writes the output file
 	{
-		ifstream req_del("required_delays.txt");
+		ofstream f(s);
+		string literal="";
+		while((line[ind]!='\r') and (line[ind]!='\0'))
+		{
+			ind++;
+			literal="";
+			while((line[ind]!=' ') and (line[ind]!='\r') and (line[ind]!='\0'))
+			{
+				literal+=line[ind];
+				ind++;
+			}
+			f<<literal<<" "<<lit[literal]<<endl;
+		}
+		f.close();	
+	}
+	void calc_inp()			//traverses all the gates to calculate the delay in inputs
+	{
+		Node* it=ls.go_last();
+		GATE* gt;
+		float delay;
+		float temp;
+		do
+		{
+			gt=it->get_val();
+			for(int i=0;i<gt->get_n_inp();i++)
+			{
+				temp=lit[gt->get_out()]-gates[gt->get_name()];
+				delay=min(temp,lit[gt->get_in(i)]);
+				lit[gt->get_in(i)]=delay;
+			}		
+		}while((it=ls.tow_head())!=nullptr);
+	}
+	void calc_out()			//traverses all the gates to calculate the delay in outputs
+	{
+		for(auto &x:lit)
+		{
+			x.second=0;
+		}
+		Node* it=ls.go_first();
+		GATE* gt;
+		float delay;
+		float temp;
+		do
+		{
+			delay=0;
+			gt=it->get_val();
+			for(int i=0;i<gt->get_n_inp();i++)
+			{
+				temp=lit[gt->get_in(i)];
+				delay=max(delay,temp);				
+			}	
+			lit[gt->get_out()]=delay+gates[gt->get_name()];	
+		}while((it=ls.tow_tail())!=nullptr);		
+	}
+	void set_in_map(char* x,unordered_map <string,float> &m)		//used to update both the maps with values.
+	{
+		if((x[0]=='/' and x[1]=='/') or (x[0]=='\r') or isspace(x))
+		{
+			return;
+		}
+		string s1="";
+		string s2="";
+		int i=0;
+		while(x[i]!=' ')
+		{
+			s1=s1+x[i];
+			i++;
+		}
+		while(x[i])
+		{
+			s2=s2+x[i];
+			i++;
+		}
+		m[s1]=stof(s2);		
+	}
+	public:
+	void set_req_del(string s)	//sets the primary output delays
+	{
+		ifstream req_del(s);
 		for(auto &x:lit)
 		{
 			x.second=(numeric_limits<float>::infinity());
@@ -218,57 +297,23 @@ class CIRCUIT
 		char line[100];
 		while(req_del.getline(line,100))
 		{	
-			if((line[0]=='/' and line[1]=='/') or (line[0]=='\r') or isspace(line))
-			{
-				continue;
-			}
-			string s1="";
-			string s2="";
-			int i=0;
-			while(line[i]!=' ')
-			{
-				s1=s1+line[i];
-				i++;
-			}
-			while(line[i])
-			{
-				s2=s2+line[i];
-				i++;
-			}
-			lit[s1]=stof(s2);
+			set_in_map(line,lit);
 		}
 		req_del.close();
 	}
-	void set_gates()		//sets all the delay timings of the gates to the ones provided in the file.
+	void set_gates(string s)		//sets all the delay timings of the gates to the ones provided in the file.
 	{
-		ifstream g_delays("gate_delays.txt");
+		ifstream g_delays(s);
 		char line[100];
 		while(g_delays.getline(line,100))
 		{	
-			if((line[0]=='/' and line[1]=='/') or (line[0]=='\r') or isspace(line))
-			{
-				continue;
-			}
-			string s1="";
-			string s2="";
-			int i=0;
-			while(line[i]!=' ')
-			{
-				s1=s1+line[i];
-				i++;
-			}
-			while(line[i])
-			{
-				s2=s2+line[i];
-				i++;
-			}
-			gates[s1]=stof(s2);
+			set_in_map(line,gates);
 		}
 		g_delays.close();
 	}	
-	void mk_circ()		//reads the circuit file
+	void sim_circ(string s)		//reads the circuit file
 	{
-		ifstream net("circuit.txt");
+		ifstream net(s);
 		char line[100];	
 		while(net.getline(line,100))
 		{	
@@ -287,67 +332,52 @@ class CIRCUIT
 			if(s1=="PRIMARY_OUTPUTS")
 			{
 				o_line=line;
+				add_lit(line,15);
 			}
 			else if(s1=="PRIMARY_INPUTS")
 			{
 				i_line=line;
-				read_inp(line);
+				add_lit(line,14);
 			}
 			else if(s1=="INTERNAL_SIGNALS")
 			{
-				
+				is_line=line;
+				add_lit(line,16);
 			}
 			else
 			{
 				read_gate(line);
 			}
 		}
-		net.close();
-		print_out();				
+		net.close();			
 	}
-	void print_in()
+	void delay_out(string s)
 	{
-		ofstream i_delays("input_delays.txt");
-		int ind=14;
-		string literal="";
-		while((i_line[ind]!='\r') and (i_line[ind]!='\0'))
-		{
-			ind++;
-			literal="";
-			while((i_line[ind]!=' ') and (i_line[ind]!='\r') and (i_line[ind]!='\0'))
-			{
-				literal+=i_line[ind];
-				ind++;
-			}
-			i_delays<<literal<<" "<<lit[literal]<<endl;
-		}
-		i_delays.close();
+		calc_out();
+		print(s,15,o_line);
 	}
-	void calc_inp()
+	void delay_in(string s)
 	{
-		Node* it=ls.get_last();
-		GATE* gt;
-		float delay;
-		float temp;
-		do
-		{
-			gt=it->get_val();
-			for(int i=0;i<gt->get_n_inp();i++)
-			{
-				temp=lit[gt->get_out()]-gates[gt->get_name()];
-				delay=min(temp,lit[gt->get_in(i)]);
-				lit[gt->get_in(i)]=delay;
-			}		
-		}while((it=ls.go_back())!=nullptr);
+		calc_inp();
+		print(s,14,i_line);
 	}
 		
 };
 int main()
 {
 	CIRCUIT cir;
-	cir.set_gates();
-	cir.mk_circ();
-	cir.set_req_del();
-	cir.calc_inp();
-	cir.print_in();
+
+	//initializes the gates with their delays and stores information about the circuit.
+	cir.set_gates("gate_delays.txt");
+	cir.sim_circ("circuit.txt");
+
+	//calculates the maximum possible delay in outputs and creates a file storing them
+	cir.delay_out("output_delays.txt");
+
+	//initializes the delays of outputs to those in the file.
+	cir.set_req_del("required_delays.txt");
+
+
+	//calculates the delay in inputs and creates a file storing them
+	cir.delay_in("input_delays.txt");
 }
