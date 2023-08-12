@@ -1,15 +1,130 @@
 #include <iostream>
 #include <fstream>
+#include <limits>
 #include <unordered_map>
 using namespace std;
-class Circuit
+class GATE 	//simulate a gate with its input and outputs
+{
+	private:
+	string name="";
+	int n_inp;
+	string out="";
+	string *in=nullptr;
+	public:
+	GATE(string s,int no)
+	{
+		name=s;
+		n_inp=no;
+		in=new string[n_inp];
+	}
+	void set_out(string o)
+	{
+		out=o;
+	}
+	void set_in(string s)
+	{
+		static int i=0;
+		in[i]=s;
+		i++;	
+	}
+	string get_in(int ind)
+	{
+		return in[ind];
+	}
+	int get_n_inp()
+	{
+		return n_inp;
+	}
+	string get_out()
+	{
+		return out;
+	}
+	string get_name()
+	{
+		return name;
+	}
+};
+class Node
+{
+	private:
+	Node* prev;
+	Node* next=nullptr;
+	GATE* val;
+	public:
+	Node(Node* a,GATE* c)
+	{
+		prev=a;
+		val=c;
+	}
+	void set_next(Node* a)
+	{
+		next=a;
+	}
+	Node* get_prev()
+	{	
+		return prev;
+	}
+	GATE* get_val()
+	{
+		return val;
+	}
+};
+class List 	//create a linked list to store pointers of GATE type
+{
+	private:
+	Node* last=nullptr;
+	public:
+	void push_back(GATE* a)
+	{
+		if(last!=nullptr)
+		{
+			Node *temp=new Node(last,a);
+			last->set_next(temp);
+			last=temp;
+			delete temp;
+		}
+		else
+		{
+			Node *temp=new Node(last,a);
+			last=temp;
+			delete temp;
+		}
+	}
+	Node* get_last()
+	{
+		return last;
+	}			
+};
+class CIRCUIT
 {
 	private:
 	#define max(a,b) ((a>b)? a:b)
+	#define min(a,b) ((a<b)? a:b)
 	unordered_map <string,float> lit; 	 //map from literals to their delays
 	unordered_map <string,float> gates; 	//map from gates to their delays
+	string i_line="";
+	string o_line="";	
+	List ls;
+	void calc_inp()
+	{
+		Node* it=ls.get_last();
+		GATE* gt;
+		float delay;
+		float temp;
+		while((it->get_prev())!=nullptr)
+		{
+			gt=it->get_val();
+			for(int i=0;i<gt->get_n_inp();i++)
+			{
+				temp=lit[gt->get_out()]-gates[gt->get_name()];
+				delay=min(temp,lit[gt->get_out()]);
+				lit[gt->get_out()]=delay;
+			}		
+		}
+	}
 	void read_gate(string gate)	 //provided the line containing the i/o of the gate, updates the map of literals
 	{
+		static int x=-1;
 		string g_name="";
 		string no_in="";
 		int ind=0;
@@ -26,11 +141,13 @@ class Circuit
 			}
 			g_name+=ch;
 		}
+		GATE *pt;
 		int i=1;
 		if(no_in!="")
 		{
 			i=(int)(stof(no_in));
 		}
+		pt=new GATE(g_name,i);
 		int delay=0;
 		string literal="";
 		while(i)
@@ -43,6 +160,7 @@ class Circuit
 			}
 			ind++;
 			delay=max(delay,lit[literal]);
+			pt->set_in(literal);
 			i--;
 		}
 		delay+=gates[g_name];
@@ -52,6 +170,8 @@ class Circuit
 			literal+=gate[ind];
 			ind++;
 		}	
+		pt->set_out(literal);
+		ls.push_back(pt);
 		lit[literal]=delay;
 	}
 	void set_out(string out) 		//writes the output file
@@ -103,6 +223,37 @@ class Circuit
 		return f;
 	}
 	public:
+	void set_req_del()	//sets the primary output delays
+	{
+		ifstream req_del("required_delays.txt");
+		for(auto &x:lit)
+		{
+			x.second=0;
+		}
+		char line[100];
+		while(req_del.getline(line,100))
+		{	
+			if((line[0]=='/' and line[1]=='/') or (line[0]=='\r') or isspace(line))
+			{
+				continue;
+			}
+			string s1="";
+			string s2="";
+			int i=0;
+			while(line[i]!=' ')
+			{
+				s1=s1+line[i];
+				i++;
+			}
+			while(line[i])
+			{
+				s2=s2+line[i];
+				i++;
+			}
+			lit[s1]=stof(s2);
+		}
+		req_del.close();
+	}
 	void set_gates()		//sets all the delay timings of the gates to the ones provided in the file.
 	{
 		ifstream g_delays("gate_delays.txt");
@@ -134,7 +285,6 @@ class Circuit
 	{
 		ifstream net("circuit.txt");
 		char line[100];	
-		string o_line="";	
 		while(net.getline(line,100))
 		{	
 			
@@ -155,6 +305,7 @@ class Circuit
 			}
 			else if(s1=="PRIMARY_INPUTS")
 			{
+				i_line=line;
 				read_inp(line);
 			}
 			else if(s1=="INTERNAL_SIGNALS")
@@ -172,7 +323,7 @@ class Circuit
 };
 int main()
 {
-	Circuit cir;
+	CIRCUIT cir;
 	cir.set_gates();
 	cir.mk_circ();
 }
